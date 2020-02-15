@@ -22,6 +22,7 @@ function squareDistanceToSegment(p, a, b) {
     dy = p.y - y;
     return (Math.pow(dx, 2)) + (Math.pow(dy, 2));
 }
+// Douglas-Peucker algorithm to simplify (smoothen) a sequence of points
 function simplify(points, tolerance) {
     if (points.length <= 1) {
         return points;
@@ -224,6 +225,35 @@ function createBezierBuilder(opt) {
         recursive(x1234, y1234, x234, y234, x34, y34, x4, y4, points, distanceTolerance, level + 1);
     }
 }
+function svgPathData(points) {
+    const line = (a, b) => {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        return {
+            length: Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2)),
+            angle: Math.atan2(dy, dx)
+        };
+    };
+    const controlPoint = (current, previous, next, reverse) => {
+        const p = previous || current;
+        const n = next || current;
+        const smoothing = 0.2;
+        const o = line(p, n);
+        const angle = o.angle + (reverse ? Math.PI : 0);
+        const length = o.length * smoothing;
+        const x = current.x + Math.cos(angle) * length;
+        const y = current.y + Math.sin(angle) * length;
+        return { x, y };
+    };
+    const bezierCommand = (point, i, a) => {
+        const cps = controlPoint(a[i - 1], a[i - 2], point, false);
+        const cpe = controlPoint(point, a[i - 1], a[i + 1], true);
+        return `C ${cps.x} ${cps.y} ${cpe.x} ${cpe.y} ${point.x} ${point.y}`;
+    };
+    return points.reduce((acc, point, i, a) => i === 0
+        ? `M ${point.x} ${point.y}`
+        : `${acc} ${bezierCommand(point, i, a)}`, '');
+}
 figma.currentPage.selection.filter(n => n.type === 'VECTOR').forEach(node => {
     const v = node;
     let allPoints = [];
@@ -247,38 +277,10 @@ figma.currentPage.selection.filter(n => n.type === 'VECTOR').forEach(node => {
         render(start, c1, c2, end, 1.0, points);
         allPoints = allPoints.concat(points);
     });
-    allPoints = simplify(allPoints.map(p => ({ x: p[0], y: p[1] })), 3).map(p => [p.x, p.y]);
-    // const vector = v.clone();
-    const line = (pointA, pointB) => {
-        const lengthX = pointB[0] - pointA[0];
-        const lengthY = pointB[1] - pointA[1];
-        return {
-            length: Math.sqrt(Math.pow(lengthX, 2) + Math.pow(lengthY, 2)),
-            angle: Math.atan2(lengthY, lengthX)
-        };
-    };
-    const controlPoint = (current, previous, next, reverse) => {
-        const p = previous || current;
-        const n = next || current;
-        const smoothing = 0.2;
-        const o = line(p, n);
-        const angle = o.angle + (reverse ? Math.PI : 0);
-        const length = o.length * smoothing;
-        const x = current[0] + Math.cos(angle) * length;
-        const y = current[1] + Math.sin(angle) * length;
-        return [x, y];
-    };
-    const bezierCommand = (point, i, a) => {
-        const [cpsX, cpsY] = controlPoint(a[i - 1], a[i - 2], point, false);
-        const [cpeX, cpeY] = controlPoint(point, a[i - 1], a[i + 1], true);
-        return `C ${cpsX} ${cpsY} ${cpeX} ${cpeY} ${point[0]} ${point[1]}`;
-    };
-    const d = allPoints.reduce((acc, point, i, a) => i === 0
-        ? `M ${point[0]} ${point[1]}`
-        : `${acc} ${bezierCommand(point, i, a)}`, '');
+    allPoints = simplify(allPoints.map(p => ({ x: p[0], y: p[1] })), 3);
     const path = {
         windingRule: 'NONE',
-        data: d,
+        data: svgPathData(allPoints),
     };
     v.vectorPaths = [path];
 });
