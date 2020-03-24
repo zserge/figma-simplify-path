@@ -1,7 +1,6 @@
-;
 // Square distance between two points a and b
 function squareDistance(a, b) {
-    return (Math.pow((a.x - b.x), 2)) + (Math.pow((a.y - b.y), 2));
+    return Math.pow((a.x - b.x), 2) + Math.pow((a.y - b.y), 2);
 }
 // Square distance from point p to a segment between points a and b.
 function squareDistanceToSegment(p, a, b) {
@@ -9,7 +8,7 @@ function squareDistanceToSegment(p, a, b) {
     let dx = b.x - x;
     let dy = b.y - y;
     if (dx !== 0 || dy !== 0) {
-        const t = (((p.x - x) * dx) + ((p.y - y) * dy)) / ((Math.pow(dx, 2)) + (Math.pow(dy, 2)));
+        const t = ((p.x - x) * dx + (p.y - y) * dy) / (Math.pow(dx, 2) + Math.pow(dy, 2));
         if (t > 1) {
             ({ x, y } = b);
         }
@@ -20,7 +19,7 @@ function squareDistanceToSegment(p, a, b) {
     }
     dx = p.x - x;
     dy = p.y - y;
-    return (Math.pow(dx, 2)) + (Math.pow(dy, 2));
+    return Math.pow(dx, 2) + Math.pow(dy, 2);
 }
 // Douglas-Peucker algorithm to simplify (smoothen) a sequence of points
 function simplify(points, tolerance) {
@@ -59,17 +58,12 @@ function simplify(points, tolerance) {
     }
     return newPoints;
 }
-function clone(point) {
-    return [point[0], point[1]];
-}
-function vec2(x, y) {
-    return [x, y];
-}
 const RECURSION_LIMIT = 8;
-const FLT_EPSILON = 1.19209290e-7;
+const FLT_EPSILON = 1.1920929e-7;
 const curve_angle_tolerance_epsilon = 0.01;
 const m_angle_tolerance = 0;
 const m_cusp_limit = 0;
+// Entry point for recursive bezier curve rendering
 function renderBezier(start, c1, c2, end) {
     const points = [];
     points.push(start);
@@ -77,11 +71,12 @@ function renderBezier(start, c1, c2, end) {
     const { x: x2, y: y2 } = c1;
     const { x: x3, y: y3 } = c2;
     const { x: x4, y: y4 } = end;
-    recursive(x1, y1, x2, y2, x3, y3, x4, y4, points, 1, 0);
+    renderBezierRecursive(x1, y1, x2, y2, x3, y3, x4, y4, points, 1, 0);
     points.push(end);
     return points;
 }
-function recursive(x1, y1, x2, y2, x3, y3, x4, y4, points, distanceTolerance, level) {
+// Recursively split bezier curve in two, adding newly created points to the list
+function renderBezierRecursive(x1, y1, x2, y2, x3, y3, x4, y4, points, distanceTolerance, level) {
     if (level > RECURSION_LIMIT) {
         return;
     }
@@ -100,7 +95,8 @@ function recursive(x1, y1, x2, y2, x3, y3, x4, y4, points, distanceTolerance, le
     const y234 = (y23 + y34) / 2;
     const x1234 = (x123 + x234) / 2;
     const y1234 = (y123 + y234) / 2;
-    if (level > 0) { // Enforce subdivision first time
+    if (level > 0) {
+        // Enforce subdivision first time
         // Try to approximate the full cubic curve by a single straight line
         //------------------
         let dx = x4 - x1;
@@ -213,8 +209,8 @@ function recursive(x1, y1, x2, y2, x3, y3, x4, y4, points, distanceTolerance, le
     }
     // Continue subdivision
     //----------------------
-    recursive(x1, y1, x12, y12, x123, y123, x1234, y1234, points, distanceTolerance, level + 1);
-    recursive(x1234, y1234, x234, y234, x34, y34, x4, y4, points, distanceTolerance, level + 1);
+    renderBezierRecursive(x1, y1, x12, y12, x123, y123, x1234, y1234, points, distanceTolerance, level + 1);
+    renderBezierRecursive(x1234, y1234, x234, y234, x34, y34, x4, y4, points, distanceTolerance, level + 1);
 }
 // Converts array of points to a smooth SVG path data like "M x y C sx sy ex ey px py C ..."
 function svgPathData(points) {
@@ -244,9 +240,14 @@ function svgPathData(points) {
     };
     return points.reduce((acc, point, i, a) => i === 0
         ? `M ${point.x} ${point.y}`
-        : `${acc} ${bezierCommand(point, i, a)}`, '');
+        : `${acc} ${bezierCommand(point, i, a)}`, "");
 }
-figma.currentPage.selection.filter(n => n.type === 'VECTOR').forEach(node => {
+const vectors = figma.currentPage.selection
+    .filter(n => n.type === "VECTOR");
+if (vectors.length == 0) {
+    figma.notify('Please, select at least one vector path to simplify.');
+}
+vectors.forEach(node => {
     const v = node;
     let allPoints = [];
     v.vectorNetwork.segments.forEach(segment => {
@@ -267,8 +268,8 @@ figma.currentPage.selection.filter(n => n.type === 'VECTOR').forEach(node => {
     });
     allPoints = simplify(allPoints, 2);
     const path = {
-        windingRule: 'NONE',
-        data: svgPathData(allPoints),
+        windingRule: "NONE",
+        data: svgPathData(allPoints)
     };
     v.vectorPaths = [path];
 });

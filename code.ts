@@ -315,33 +315,36 @@ function svgPathData(points: Point[]): string {
   );
 }
 
-figma.currentPage.selection
-  .filter(n => n.type === "VECTOR")
-  .forEach(node => {
-    const v = node as VectorNode;
-    let allPoints: Point[] = [];
-    v.vectorNetwork.segments.forEach(segment => {
-      const start = v.vectorNetwork.vertices[segment.start];
-      const end = v.vectorNetwork.vertices[segment.end];
-      const c1 = { x: start.x, y: start.y };
-      const c2 = { x: end.x, y: end.y };
-      if (segment.tangentStart) {
-        c1[0] = c1[0] + segment.tangentStart.x;
-        c1[1] = c1[1] + segment.tangentStart.y;
-      }
-      if (segment.tangentEnd) {
-        c2[0] = c2[0] + segment.tangentEnd.x;
-        c2[1] = c2[1] + segment.tangentEnd.y;
-      }
-      const points = renderBezier(start, c1, c2, end);
-      allPoints = allPoints.concat(points);
-    });
-    allPoints = simplify(allPoints, 2);
-    const path: VectorPath = {
-      windingRule: "NONE",
-      data: svgPathData(allPoints)
-    };
-    v.vectorPaths = [path];
+const vectors = figma.currentPage.selection
+  .filter(n => n.type === "VECTOR");
+if (vectors.length == 0) {
+  figma.notify('Please, select at least one vector path to simplify.');
+}
+vectors.forEach(node => {
+  const v = node as VectorNode;
+  let allPoints: Point[] = [];
+  v.vectorNetwork.segments.forEach(segment => {
+    const start = v.vectorNetwork.vertices[segment.start];
+    const end = v.vectorNetwork.vertices[segment.end];
+    const c1 = { x: start.x, y: start.y };
+    const c2 = { x: end.x, y: end.y };
+    if (segment.tangentStart) {
+      c1[0] = c1[0] + segment.tangentStart.x;
+      c1[1] = c1[1] + segment.tangentStart.y;
+    }
+    if (segment.tangentEnd) {
+      c2[0] = c2[0] + segment.tangentEnd.x;
+      c2[1] = c2[1] + segment.tangentEnd.y;
+    }
+    const points = renderBezier(start, c1, c2, end);
+    allPoints = allPoints.concat(points);
   });
+  allPoints = simplify(allPoints, 2);
+  const path: VectorPath = {
+    windingRule: "NONE",
+    data: svgPathData(allPoints)
+  };
+  v.vectorPaths = [path];
+});
 
 figma.closePlugin();
